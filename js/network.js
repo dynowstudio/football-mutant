@@ -126,9 +126,6 @@ const Network = (() => {
   // ── Carte atout ───────────────────────────────────────────────────────────
   function setTrumpCard(cardId) { return _req('POST', '/api/trump-card', { cardId }); }
 
-  // ── Temps ─────────────────────────────────────────────────────────────────
-  function skipTime() { return _req('POST', '/api/admin/skip-time'); }
-
   // ── Match serveur ──────────────────────────────────────────────────────────
   function startServerMatch() { return _req('POST', '/api/match/start'); }
 
@@ -182,7 +179,6 @@ const Network = (() => {
     startSeason, resetSeason,
     getGameState, pushGameState, sendMercatoAction,
     setTrumpCard,
-    skipTime,
     getMercatoPool, placeBid, resolveMercato,
     startServerMatch,
     on, getUser, isLoggedIn, isOnline,
