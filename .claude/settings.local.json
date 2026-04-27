@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --version)",
+      "Bash(npm --version)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(where py:*)",
+      "Bash(where node:*)",
+      "Bash(where npx:*)",
+      "Bash(powershell -Command \"\\(Get-Content index.html\\) -replace 'v=27', 'v=28' | Set-Content index.html\")",
+      "Bash(powershell -Command \"Get-Content style.css | Measure-Object -Line\")",
+      "Bash(powershell -Command \"Get-Content style.css -Tail 10\")",
+      "Bash(npm install *)",
+      "Bash(cmd /c \"npm install\")",
+      "Bash(cmd /c \"cd \\\\\"C:\\\\Users\\\\dylan\\\\Desktop\\\\Football Mutant\\\\claude foot\\\\\" && npm install 2>&1\")",
+      "Bash(cmd /c \"cd /d \\\\\"C:\\\\Users\\\\dylan\\\\Desktop\\\\Football Mutant\\\\claude foot\\\\\" && npm install && echo DONE\")",
+      "Bash(cmd /c \"node --version\")",
+      "Bash(cmd /c \"npm --version\")",
+      "Bash(where npm *)",
+      "Bash(node -e \"console.log\\('node ok'\\)\")",
+      "Bash(cmd /c \"dir /b \\\\\"C:\\\\Users\\\\dylan\\\\Desktop\\\\Football Mutant\\\\claude foot\\\\\"\")",
+      "Bash(cmd /c \"type \\\\\"C:\\\\Users\\\\dylan\\\\Desktop\\\\Football Mutant\\\\claude foot\\\\game_data.json\\\\\"\")",
+      "Bash(node -e ' *)",
+      "Bash(cmd /c \"where node 2>&1\")",
+      "Bash(cmd /c \"C:\\\\Program Files\\\\nodejs\\\\node.exe -e \\\\\"console.log\\('ok'\\)\\\\\" 2>&1\")",
+      "Bash(cmd /c \"\\\\\"C:\\\\Program Files\\\\nodejs\\\\node.exe\\\\\" --version 2>&1\")",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\Users\\\\dylan\\\\Desktop\\\\Football Mutant\\\\claude foot\\\\node_modules\\\\.bin\\\\node\\\\\" 2>&1\")",
+      "Bash(netstat -ano)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" \"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/rapier.mjs\" \"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js\" \"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/webxr/XRHandModelFactory.js\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@dimforge/rapier3d-compat\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('latest:',j['dist-tags'].latest\\);console.log\\('module field:',j.versions[j['dist-tags'].latest].module\\);console.log\\('main field:',j.versions[j['dist-tags'].latest].main\\);}\\)\")",
+      "Bash(curl -sI \"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs\")"
+    ]
+  }
+}

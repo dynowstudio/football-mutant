@@ -1,0 +1,12 @@
+# Dépendances Node
+node_modules/
+
+# Données persistantes (gérées par Railway Volume en prod)
+game_data.json
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Variables d'environnement locales
+.env

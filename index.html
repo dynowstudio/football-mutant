@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Mutant</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <!-- Socket.io client (fourni par le serveur Node.js quand on joue en ligne) -->
+    <script>
+      // Charge socket.io seulement si on n'est pas en mode fichier local
+      if (window.location.protocol !== 'file:') {
+        const s = document.createElement('script');
+        s.src = '/socket.io/socket.io.js';
+        document.head.appendChild(s);
+      }
+    </script>
+</head>
+<body>
+<div id="game-container">
+
+    <!-- HEADER -->
+    <header id="game-header">
+        <div id="header-left">
+            <button id="btn-home" title="Retour à l'accueil">🏠</button>
+            <span class="header-logo">⚽</span>
+            <span class="header-title">FOOTBALL MUTANT</span>
+        </div>
+        <div id="header-center">
+            <span id="header-team-name">Mon Équipe</span>
+        </div>
+        <div id="header-right">
+            <span class="stat-chip" id="header-gold">💰 <b id="gold-display">500</b> or</span>
+            <span class="stat-chip" id="header-matchday">Journée <b id="matchday-display">1</b>/11</span>
+            <span class="stat-chip" id="header-time-chip">⏰ <span id="header-countdown">--:--</span></span>
+        </div>
+    </header>
+
+    <!-- ══════════════ SCREEN: LOGIN ══════════════ -->
+    <div id="screen-login" class="screen">
+        <div id="login-wrapper">
+            <div id="login-logo">⚽</div>
+            <div id="login-title">FOOTBALL MUTANT</div>
+            <div id="login-subtitle">Jeu multijoueur</div>
+
+            <div id="auth-tabs">
+                <button id="tab-login"    class="auth-tab active">Connexion</button>
+                <button id="tab-register" class="auth-tab">Inscription</button>
+            </div>
+
+            <!-- Formulaire connexion -->
+            <div id="form-login" class="auth-form">
+                <input id="login-username" type="text"     placeholder="Pseudo"         class="auth-input" autocomplete="username">
+                <input id="login-password" type="password" placeholder="Mot de passe"   class="auth-input" autocomplete="current-password">
+                <button id="btn-login" class="btn-primary auth-btn">Se connecter</button>
+                <div id="login-error" class="auth-error"></div>
+            </div>
+
+            <!-- Formulaire inscription -->
+            <div id="form-register" class="auth-form" style="display:none">
+                <input id="reg-username" type="text"     placeholder="Pseudo (3 car. min.)"   class="auth-input" autocomplete="username">
+                <input id="reg-password" type="password" placeholder="Mot de passe (4 car. min.)" class="auth-input" autocomplete="new-password">
+                <button id="btn-register" class="btn-primary auth-btn">Créer un compte</button>
+                <div id="register-error" class="auth-error"></div>
+                <div class="auth-hint">Le premier compte créé devient administrateur.</div>
+            </div>
+
+            <div id="login-offline-wrap">
+                <button id="btn-play-offline" class="btn-secondary auth-btn">Jouer hors ligne (solo)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: LOBBY ══════════════ -->
+    <div id="screen-lobby" class="screen">
+        <div id="lobby-header-bar">
+            <div id="lobby-title-wrap">
+                <span id="lobby-title">🏟️ Lobby</span>
+                <span id="lobby-welcome-chip"></span>
+            </div>
+            <div id="lobby-header-actions">
+                <button id="btn-logout" class="btn-cancel btn-small">Déconnexion</button>
+            </div>
+        </div>
+
+        <div id="lobby-subtitle">Choisissez votre équipe avant le début de la saison</div>
+
+        <!-- Grille des équipes -->
+        <div id="lobby-teams-grid"></div>
+
+        <!-- Mon équipe sélectionnée -->
+        <div id="lobby-my-claim-bar">
+            <span id="lobby-my-claim">Aucune équipe sélectionnée</span>
+        </div>
+
+        <div id="lobby-footer">
+            <div id="lobby-players-bar">
+                <span id="lobby-players-count"></span>
+            </div>
+            <!-- Admin uniquement -->
+            <div id="lobby-admin-zone" style="display:none">
+                <button id="btn-start-season"  class="btn-primary btn-large">🚀 Lancer la saison !</button>
+                <button id="btn-reset-season"  class="btn-cancel btn-small"  style="margin-left:8px">🔄 Réinitialiser</button>
+            </div>
+            <div id="lobby-wait-text">En attente du démarrage par l'administrateur…</div>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: STANDINGS ══════════════ -->
+    <div id="screen-standings" class="screen active">
+        <div id="standings-layout">
+            <div id="standings-table-panel">
+                <div class="panel-header">Classement</div>
+                <table id="standings-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th class="col-team">Équipe</th>
+                            <th title="Joués">J</th>
+                            <th title="Victoires">V</th>
+                            <th title="Nuls">N</th>
+                            <th title="Défaites">D</th>
+                            <th title="Buts pour">BP</th>
+                            <th title="Buts contre">BC</th>
+                            <th title="Différence de buts">DB</th>
+                            <th title="Points">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standings-body"></tbody>
+                </table>
+            </div>
+            <div id="standings-side-panel">
+                <div id="team-card-panel">
+                    <div class="panel-header">Votre Équipe</div>
+                    <div id="team-roster-display"></div>
+                </div>
+                <div id="recent-results-panel">
+                    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between">
+                        <span>Derniers résultats</span>
+                        <button id="btn-standings-replay" class="btn-mini" style="display:none" title="Revoir le dernier match">📺 Revoir</button>
+                    </div>
+                    <div id="recent-results-list"></div>
+                </div>
+                <div id="trump-card-panel"></div>
+            </div>
+        </div>
+        <div id="scorers-layout">
+            <div class="panel-header" style="grid-column:1/-1">📊 Statistiques de la saison</div>
+            <div id="top-scorers-panel">
+                <div class="panel-header">⚽ Meilleurs buteurs</div>
+                <div id="scorers-list"></div>
+            </div>
+            <div id="top-assisters-panel">
+                <div class="panel-header">🎯 Meilleurs passeurs</div>
+                <div id="assisters-list"></div>
+            </div>
+        </div>
+        <!-- Calendrier de la saison -->
+        <div id="schedule-panel">
+            <div id="schedule-toggle-bar">
+                <span id="schedule-toggle-title">📅 Calendrier de la saison</span>
+                <button id="btn-toggle-schedule" class="btn-toggle">▼ Afficher</button>
+            </div>
+            <div id="schedule-content" style="display:none"></div>
+        </div>
+
+        <!-- Programme journalier -->
+        <div id="time-panel">
+            <div id="time-schedule-bar">
+                <div class="sch-slot" id="sch-mercato-open">
+                    <span class="sch-icon">🛒</span>
+                    <span class="sch-label">Mercato</span>
+                    <span class="sch-hour">12:00</span>
+                </div>
+                <div class="sch-arrow">›</div>
+                <div class="sch-slot" id="sch-mercato-close">
+                    <span class="sch-icon">🔒</span>
+                    <span class="sch-label">Fermeture</span>
+                    <span class="sch-hour">20:00</span>
+                </div>
+                <div class="sch-arrow">›</div>
+                <div class="sch-slot" id="sch-match-start">
+                    <span class="sch-icon">⚽</span>
+                    <span class="sch-label">Match</span>
+                    <span class="sch-hour">20:30</span>
+                </div>
+            </div>
+            <div id="time-next-bar">
+                <span id="time-next-label">Chargement…</span>
+                <span id="time-countdown-val" class="countdown-val">--</span>
+            </div>
+        </div>
+
+        <div id="cup-teaser" style="display:none">
+            <div id="cup-teaser-inner">
+                <div id="cup-teaser-title">🏆 Coupe de Mi-Saison — <span id="cup-teaser-label"></span></div>
+                <div id="cup-teaser-prizes">
+                    <span class="cup-reward-chip">QF : <b>+150 or</b></span>
+                    <span class="cup-reward-chip">½F : <b>+250 or</b></span>
+                    <span class="cup-reward-chip">½F (élim.) : <b>+100 or</b></span>
+                    <span class="cup-reward-chip">Finaliste : <b>+200 or</b></span>
+                    <span class="cup-reward-chip">🏆 Champion : <b>+600 or</b></span>
+                </div>
+            </div>
+        </div>
+        <!-- Accès rapide à la phase en cours -->
+        <div id="phase-access-bar" style="display:none"></div>
+
+        <div id="standings-footer">
+            <button id="btn-training" class="btn-secondary btn-large">🏋️ Entraînement</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: TRAINING ══════════════ -->
+    <div id="screen-training" class="screen">
+        <div class="panel-header">🏋️ Mode Entraînement</div>
+        <div id="training-layout">
+            <div id="training-level-panel">
+                <div class="panel-header">Niveau de l'adversaire</div>
+                <div id="training-level-grid"></div>
+                <div id="training-level-desc"></div>
+            </div>
+            <div id="training-team-panel">
+                <div class="panel-header">Votre équipe</div>
+                <div id="training-your-team"></div>
+            </div>
+        </div>
+        <div class="training-note">⚠️ L'entraînement n'affecte ni l'or, ni le classement, ni les blessures.</div>
+        <div id="training-footer">
+            <button id="btn-back-training" class="btn-cancel btn-large">← Retour</button>
+            <button id="btn-launch-training" class="btn-primary btn-large">▶ Lancer l'entraînement</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: MERCATO ══════════════ -->
+    <div id="screen-mercato" class="screen">
+        <div id="mercato-header-bar">
+            <div class="panel-header">Mercato — Journée <span id="mercato-day-num">1</span></div>
+            <div id="mercato-budget">Budget: <b id="mercato-gold-display">500</b> or</div>
+        </div>
+        <div id="mercato-layout">
+            <!-- Your squad -->
+            <div id="mercato-your-team">
+                <div class="panel-header">Votre Effectif</div>
+                <div id="your-roster-list"></div>
+                <div class="mercato-hint">← Sélectionnez un joueur à remplacer</div>
+            </div>
+            <!-- Transfer pool -->
+            <div id="mercato-pool-panel">
+                <div class="panel-header">Joueurs Disponibles <span id="pool-count">(20)</span></div>
+                <div id="pool-list"></div>
+            </div>
+        </div>
+        <!-- Confirm transfer panel -->
+        <div id="transfer-confirm" style="display:none">
+            <div id="transfer-confirm-inner">
+                <div id="transfer-preview"></div>
+                <div id="transfer-cost-line"></div>
+                <div id="transfer-buttons">
+                    <button id="btn-confirm-transfer" class="btn-success">✓ Confirmer le transfert</button>
+                    <button id="btn-cancel-transfer" class="btn-cancel">✗ Annuler</button>
+                </div>
+            </div>
+        </div>
+        <!-- Bid modal (enchères en ligne) -->
+        <div id="bid-modal" style="display:none">
+            <div id="bid-modal-inner">
+                <div id="bid-player-info"></div>
+                <div id="bid-current-info"></div>
+                <div id="bid-form">
+                    <label id="bid-slot-label">Remplacer :</label>
+                    <div id="bid-slot-list"></div>
+                    <label id="bid-amount-label">Votre enchère :</label>
+                    <div id="bid-amount-wrap">
+                        <input id="bid-amount-input" type="number" class="auth-input" min="0" step="1">
+                        <span id="bid-amount-suffix">or</span>
+                    </div>
+                </div>
+                <div id="bid-error" class="auth-error"></div>
+                <div id="bid-modal-btns">
+                    <button id="btn-confirm-bid" class="btn-success">🔨 Enchérir</button>
+                    <button id="btn-cancel-bid" class="btn-cancel">Annuler</button>
+                </div>
+            </div>
+        </div>
+        <div id="mercato-footer">
+            <button id="btn-ready-play" class="btn-primary btn-large">Prêt à jouer !</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: FORMATION ══════════════ -->
+    <div id="screen-formation" class="screen">
+        <div id="formation-header-bar">
+            <div class="panel-header">⚽ Formation — Journée <span id="formation-day-num">1</span></div>
+        </div>
+        <div id="formation-layout">
+            <!-- Half-pitch canvas -->
+            <div id="formation-canvas-wrap">
+                <canvas id="formation-canvas"></canvas>
+            </div>
+            <!-- Right panel: presets + players -->
+            <div id="formation-side-panel">
+                <div class="panel-header" style="margin-bottom:8px">Schéma tactique</div>
+                <div id="formation-presets"></div>
+                <div class="panel-header" style="margin:12px 0 8px">Joueurs</div>
+                <div id="formation-players-list"></div>
+                <div class="formation-hint">Glissez les tokens pour repositionner vos joueurs</div>
+            </div>
+        </div>
+        <div id="formation-footer">
+            <div id="formation-time-bar" style="display:none">
+                <span id="formation-time-label">⚽ Match dans</span>
+                <span id="formation-time-val" class="countdown-val">--:--</span>
+            </div>
+            <div id="formation-footer-btns">
+                <button id="btn-back-formation" class="btn-cancel btn-large">← Retour</button>
+                <button id="btn-confirm-formation" class="btn-primary btn-large">✔ Confirmer et jouer !</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: MATCH ══════════════ -->
+    <div id="screen-match" class="screen">
+        <div id="match-top-bar">
+            <div id="match-team-home" class="match-team-label">
+                <span id="match-home-name">Équipe A</span>
+                <div id="match-home-color" class="team-color-dot"></div>
+            </div>
+            <div id="match-scorebox">
+                <span id="match-home-score">0</span>
+                <span id="match-score-sep">–</span>
+                <span id="match-away-score">0</span>
+            </div>
+            <div id="match-team-away" class="match-team-label">
+                <div id="match-away-color" class="team-color-dot"></div>
+                <span id="match-away-name">Équipe B</span>
+            </div>
+        </div>
+        <div id="canvas-wrapper">
+            <canvas id="pitch" width="680" height="440"></canvas>
+            <div id="halftime-overlay" style="display:none">
+                <div id="halftime-text">MI-TEMPS</div>
+                <div id="halftime-score"></div>
+            </div>
+            <div id="replay-banner" style="display:none">
+                <span id="replay-banner-icon">📺</span>
+                <span id="replay-banner-text">REDIFFUSION</span>
+            </div>
+            <div id="training-result-overlay" style="display:none">
+                <div id="training-result-inner">
+                    <div id="training-result-badge"></div>
+                    <div id="training-result-score"></div>
+                    <div id="training-result-label"></div>
+                    <button id="btn-training-done" class="btn-primary">← Retour à l'accueil</button>
+                </div>
+            </div>
+            <!-- 3D goal text overlay (injected by MatchRenderer) -->
+        </div>
+        <div id="match-bottom-bar">
+            <div id="match-time-wrap">
+                <span id="match-time-display">0'</span>
+            </div>
+            <div id="possession-wrap">
+                <span id="poss-label-home"></span>
+                <div id="possession-bar">
+                    <div id="possession-fill"></div>
+                </div>
+                <span id="poss-label-away"></span>
+            </div>
+            <div id="speed-control">
+                <button id="btn-speed" class="btn-small">⚡ ×2</button>
+            </div>
+        </div>
+        <div id="match-events-ticker"></div>
+    </div>
+
+    <!-- ══════════════ SCREEN: REWARDS ══════════════ -->
+    <div id="screen-rewards" class="screen">
+        <div class="panel-header">Résultats — Journée <span id="rewards-day-num">1</span></div>
+        <div id="rewards-layout">
+            <div id="rewards-your-result"></div>
+            <div id="rewards-economy-panel"></div>
+            <div id="rewards-all-results-panel">
+                <div class="panel-header">Tous les résultats</div>
+                <div id="all-results-list"></div>
+            </div>
+        </div>
+        <div id="rewards-footer">
+            <button id="btn-replay-match" class="btn-secondary btn-large" style="display:none">📺 Revoir le match</button>
+            <button id="btn-continue" class="btn-primary btn-large">Continuer →</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: CUP ══════════════ -->
+    <div id="screen-cup" class="screen">
+        <div id="cup-header-bar">
+            <div class="panel-header">🏆 Coupe de Mi-Saison</div>
+            <div id="cup-rewards-bar">
+                <span class="cup-reward-chip">QF : <b>+150 or</b></span>
+                <span class="cup-reward-chip">½F : <b>+250 or</b></span>
+                <span class="cup-reward-chip">½F (élim.) : <b>+100 or</b></span>
+                <span class="cup-reward-chip">Finaliste : <b>+200 or</b></span>
+                <span class="cup-reward-chip">🏆 Champion : <b>+600 or</b></span>
+            </div>
+        </div>
+        <!-- Teaser caché dans le screen-cup — jamais visible hors de la coupe -->
+        <div id="cup-round-label"></div>
+        <div id="cup-bracket"></div>
+        <div id="cup-earnings"></div>
+        <div id="cup-footer">
+            <button id="btn-play-cup" class="btn-primary btn-large">▶ Jouer les Quarts</button>
+        </div>
+    </div>
+
+    <!-- ══════════════ SCREEN: SEASON END ══════════════ -->
+    <div id="screen-season-end" class="screen">
+        <div class="screen-center-content">
+            <div class="big-title">🏆 FIN DE SAISON</div>
+            <div id="season-winner-text"></div>
+            <div id="season-final-standings"></div>
+            <button id="btn-new-season" class="btn-primary btn-large">Nouvelle Saison</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Scripts — load in dependency order -->
+<!-- Admin panel (toujours visible pour les tests) -->
+<div id="admin-panel">
+    <div id="admin-header">🔧 Admin</div>
+    <div id="admin-time">00:00:00</div>
+    <button id="btn-skip-time">⏩ Prochain événement</button>
+</div>
+
+<script src="js/network.js?v=29"></script>
+<script src="js/GameClock.js?v=29"></script>
+<script src="js/data/players.js?v=29"></script>
+<script src="js/data/trump_cards.js?v=29"></script>
+<script src="js/models/Player.js?v=29"></script>
+<script src="js/models/Team.js?v=29"></script>
+<script src="js/models/League.js?v=29"></script>
+<script src="js/simulation/Ball.js?v=29"></script>
+<script src="js/simulation/PlayerAgent.js?v=29"></script>
+<script src="js/simulation/MatchEngine.js?v=29"></script>
+<script src="js/economy/Mercato.js?v=29"></script>
+<script src="js/economy/Salary.js?v=29"></script>
+<script src="js/ui/ScreenManager.js?v=29"></script>
+<script src="js/ui/MatchRenderer.js?v=29"></script>
+<script src="js/ui/StandingsUI.js?v=29"></script>
+<script src="js/ui/TrumpCardUI.js?v=29"></script>
+<script src="js/ui/MercatoUI.js?v=29"></script>
+<script src="js/ui/RewardsUI.js?v=29"></script>
+<script src="js/ui/CupUI.js?v=29"></script>
+<script src="js/ui/FormationUI.js?v=29"></script>
+<script src="js/main.js?v=29"></script>
+</body>
+</html>
