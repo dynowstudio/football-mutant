@@ -1021,10 +1021,6 @@ function _updateClockUI() {
   const hcd = document.getElementById('header-countdown');
   if (hcd) hcd.textContent = next.icon + ' ' + GameClock.formatCountdown(next.msLeft);
 
-  // ── Admin ──
-  const at = document.getElementById('admin-time');
-  if (at) at.textContent = GameClock.formatTime(cur);
-
   // ── Décompte écran formation ──
   const fval = document.getElementById('formation-time-val');
   if (fval && Game.phase === 'FORMATION' && Game._formationOrigin !== 'TRAINING') {
@@ -1473,13 +1469,7 @@ function _updateOnlineHeader() {
   }
   badge.innerHTML = `<span style="color:#22c55e">●</span> ${user.username}`;
 
-  // Marquer le body comme "en ligne" (masque l'admin panel par défaut via CSS)
   document.body.classList.add('is-online');
-
-  // Panneau admin : visible seulement pour l'admin
-  // 'flex' car c'est la valeur déclarée dans #admin-panel ; '' laisserait la règle CSS .is-online gagner
-  const adminPanel = document.getElementById('admin-panel');
-  if (adminPanel) adminPanel.style.display = user.isAdmin ? 'flex' : 'none';
 }
 
 // ── Fusion de l'état distant ──────────────────────────────────────────────────
@@ -1799,27 +1789,6 @@ document.addEventListener('DOMContentLoaded', () => {
     content.style.display = open ? 'block' : 'none';
     btn.textContent = open ? '▲ Masquer' : '▼ Afficher';
     if (open && Game.league) StandingsUI._buildSchedule(Game.league, content);
-  });
-
-  // Admin — avancer le temps
-  document.getElementById('btn-skip-time').addEventListener('click', () => {
-    const btn = document.getElementById('btn-skip-time');
-    if (Game.isOnline) {
-      // En ligne : le serveur calcule le saut et le diffuse à tous
-      btn.disabled = true;
-      btn.textContent = '⏳ Envoi…';
-      Network.skipTime()
-        .then(() => { btn.textContent = '✓ Fait !'; })
-        .catch(err => { console.error('skipTime:', err); btn.textContent = '✗ Erreur'; })
-        .finally(() => setTimeout(() => {
-          btn.disabled = false;
-          btn.textContent = '⏩ Prochain événement';
-        }, 1500));
-    } else {
-      // Hors ligne : avance locale uniquement
-      GameClock.skipToNext();
-      _onClockTick();
-    }
   });
 
   // Training

@@ -673,14 +673,6 @@ app.get('/api/game-state', auth, (_req, res) => {
   res.json({ leagueJson: d.leagueJson || null, started: !!d.started, claims: d.claims, timeOffsetMs: d.timeOffsetMs || 0 });
 });
 
-// ── REST : Avancer le temps (admin uniquement) ─────────────────────────────
-app.post('/api/admin/skip-time', adminAuth, (_req, res) => {
-  const d          = loadData();
-  d.timeOffsetMs   = computeSkipOffset(d.timeOffsetMs || 0);
-  saveData(d);
-  io.emit('time_updated', { timeOffsetMs: d.timeOffsetMs });
-  res.json({ ok: true, timeOffsetMs: d.timeOffsetMs });
-});
 
 app.post('/api/game-state', auth, (req, res) => {
   const { leagueJson } = req.body || {};

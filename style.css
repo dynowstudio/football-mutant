@@ -1609,54 +1609,6 @@ button:active { transform: translateY(0); filter: brightness(0.95); }
   letter-spacing: 1px;
 }
 
-/* ── Admin panel (fixed) — masqué par défaut en ligne, affiché si admin ── */
-body.is-online #admin-panel { display: none; }
-
-#admin-panel {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: #1a1a2e;
-  border: 2px solid #7c3aed;
-  border-radius: 12px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 9999;
-  box-shadow: 0 4px 24px rgba(124,58,237,0.35);
-  min-width: 160px;
-}
-
-#admin-header {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #a78bfa;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-#admin-time {
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: #e2e8f0;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
-  text-align: center;
-}
-
-#btn-skip-time {
-  background: #7c3aed;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-#btn-skip-time:hover { background: #6d28d9; }
 
 /* ═══════════════════════════════════════════
    CALENDRIER DE LA SAISON
