@@ -172,7 +172,10 @@ function _buildMatchTickPayload(ms, matchId) {
 }
 
 // ── Fallback quick-sim quand createMatchState échoue ────────────────────────
-// Applique un résultat Poisson et incrémente le matchday si nécessaire.
+// IMPORTANT : ne JAMAIS déclencher _finishMatchday ici. La boucle dans
+// /api/match/start n'a peut-être pas encore démarré tous les matchs humains.
+// Si on incrémente le matchday maintenant, les matchs live des autres joueurs
+// finiront sur un matchday décalé et leurs résultats seront ignorés.
 function _fallbackQuickSim(homeTeam, awayTeam, matchday, matchId) {
   const d = loadData();
   if (!d.leagueJson) return;
@@ -190,23 +193,17 @@ function _fallbackQuickSim(homeTeam, awayTeam, matchday, matchId) {
   fixture.awayScore = r.a;
   _applyAIResult(league, fixture);
 
-  // Notifier les clients du résultat
+  d.leagueJson = JSON.stringify(league);
+  saveData(d);
+
   io.emit('match_end', {
     matchId,
     homeScore:  r.h, awayScore:  r.a,
     homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
     events: [], salaryReports: [], injuryReports: [],
-    leagueJson: JSON.stringify(league),
+    leagueJson: d.leagueJson,
   });
-
-  // Si plus aucun match en cours, avancer le matchday
-  if (_serverMatches.size === 0) {
-    _finishMatchday(league, d);
-  } else {
-    d.leagueJson = JSON.stringify(league);
-    saveData(d);
-    io.emit('game_state_updated', { leagueJson: d.leagueJson, sender: '__server__' });
-  }
+  io.emit('game_state_updated', { leagueJson: d.leagueJson, sender: '__server__' });
 }
 
 // ── Clôture d'une journée (salaires + avancement matchday) ───────────────────
@@ -248,11 +245,17 @@ function _serverPostMatch(matchId) {
   let league;
   try { league = JSON.parse(d.leagueJson); } catch { return; }
 
-  const day     = league.currentMatchday;
+  // Utiliser entry.matchday (figé au démarrage du match) plutôt que
+  // league.currentMatchday — ce dernier peut avoir avancé entre-temps si
+  // un fallback a quick-simmé d'autres fixtures.
+  const day     = entry.matchday;
   const fixture = (league.schedule[day] || []).find(
     f => f.homeId === ms.homeTeam.id && f.awayId === ms.awayTeam.id
   );
-  if (!fixture) { console.warn('Post-match: fixture not found for day', day); return; }
+  if (!fixture) {
+    console.warn('Post-match: fixture not found for day', day, '— matchId:', matchId);
+    return;
+  }
 
   fixture.homeScore = ms.homeScore;
   fixture.awayScore = ms.awayScore;
@@ -428,7 +431,18 @@ function _startServerMatch(homeTeam, awayTeam, matchday) {
     const seed = _serverMatchSeed(matchday, homeTeam.id, awayTeam.id);
     ms = _sim.createMatchState(homeTeam, awayTeam, seed);
   } catch (e) {
-    console.error(`❌ Erreur createMatchState pour ${matchId}:`, e.message, e.stack);
+    console.error(`❌ Erreur createMatchState pour ${matchId}:`, e.message);
+    console.error('   Stack:', e.stack);
+    console.error('   homeTeam:', JSON.stringify({
+      id: homeTeam.id, name: homeTeam.name, isHuman: homeTeam.isHuman,
+      rosterLen: homeTeam.roster?.length,
+      roster: homeTeam.roster?.map(p => p ? { id: p.id, name: p.name, role: p.role } : null),
+    }));
+    console.error('   awayTeam:', JSON.stringify({
+      id: awayTeam.id, name: awayTeam.name, isHuman: awayTeam.isHuman,
+      rosterLen: awayTeam.roster?.length,
+      roster: awayTeam.roster?.map(p => p ? { id: p.id, name: p.name, role: p.role } : null),
+    }));
     // ── Fallback : quick-sim plutôt que laisser la fixture à null indéfiniment ──
     console.warn(`⚠️  Fallback quick-sim pour ${matchId}`);
     _fallbackQuickSim(homeTeam, awayTeam, matchday, matchId);
@@ -871,15 +885,29 @@ app.post('/api/match/start', auth, (req, res) => {
   io.emit('game_state_updated', { leagueJson: d.leagueJson, sender: '__server__' });
 
   // Démarrer un match serveur pour chaque fixture humaine (pas déjà terminé / en cours)
+  // Note : si _startServerMatch échoue, _fallbackQuickSim attribue un score
+  // mais NE déclenche PAS _finishMatchday — on s'en charge après la boucle.
   const started = [];
   humanFixtures.forEach(f => {
-    if (f.homeScore != null) return; // déjà joué
+    if (f.homeScore != null) return; // déjà joué (potentiellement fallback'd)
     const homeTeam = league.teams.find(t => t.id === f.homeId);
     const awayTeam = league.teams.find(t => t.id === f.awayId);
     if (!homeTeam || !awayTeam) return;
     _startServerMatch(homeTeam, awayTeam, day);
     started.push(`${homeTeam.name} vs ${awayTeam.name}`);
   });
+
+  // Si aucun match live n'a démarré (tous tombés en fallback ou déjà joués),
+  // clôturer la journée maintenant — sinon le matchday n'avancerait jamais.
+  if (_serverMatches.size === 0) {
+    const dNow = loadData();
+    let leagueNow;
+    try { leagueNow = JSON.parse(dNow.leagueJson); } catch { leagueNow = null; }
+    if (leagueNow && leagueNow.currentMatchday === day) {
+      console.log('🏁 Aucun match live — clôture de la journée', day);
+      _finishMatchday(leagueNow, dNow);
+    }
+  }
 
   res.json({ ok: true, matches: started });
 });
