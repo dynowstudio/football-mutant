@@ -200,23 +200,25 @@ function confirmFormation() {
 function startMatch() {
   Game.phase = 'MATCH';
 
-  const day     = Game.league.currentMatchday;
-  const fixture = getHumanFixture(Game.league, day);
-  Game.humanFixture = fixture;
-
-  // Back up injured human players
-  _backupAndReplaceInjured();
-
-  const homeTeam = getTeamById(Game.league, fixture.homeId);
-  const awayTeam = getTeamById(Game.league, fixture.awayId);
+  const day = Game.league.currentMatchday;
 
   if (Game.isOnline) {
     // ── Mode en ligne : le serveur simule et diffuse le match ──────────────
-    try {
-      // Préparer le DOM (noms, couleurs)
-      _setupMatchDOM(homeTeam, awayTeam);
-    } catch (e) {
-      console.warn('startMatch: _setupMatchDOM failed:', e.message);
+    // Si l'utilisateur a une équipe revendiquée, préparer le DOM maintenant.
+    // Sinon (spectateur), on attend match_start pour préparer le DOM.
+    if (Game.myTeamIndex >= 0) {
+      const fixture  = getHumanFixture(Game.league, day);
+      Game.humanFixture = fixture;
+      _backupAndReplaceInjured();
+      if (fixture) {
+        try {
+          const homeTeam = getTeamById(Game.league, fixture.homeId);
+          const awayTeam = getTeamById(Game.league, fixture.awayId);
+          _setupMatchDOM(homeTeam, awayTeam);
+        } catch (e) {
+          console.warn('startMatch: _setupMatchDOM failed:', e.message);
+        }
+      }
     }
     // Demander au serveur de démarrer (il quick-sime les autres fixtures aussi)
     Network.startServerMatch()
@@ -225,6 +227,15 @@ function startMatch() {
     // Le rendu démarrera à la réception de match_start (socket event)
     return;
   }
+
+  const fixture = getHumanFixture(Game.league, day);
+  Game.humanFixture = fixture;
+
+  // Back up injured human players
+  _backupAndReplaceInjured();
+
+  const homeTeam = getTeamById(Game.league, fixture.homeId);
+  const awayTeam = getTeamById(Game.league, fixture.awayId);
 
   // ── Mode hors ligne : simulation locale ───────────────────────────────────
   getMatchdayFixtures(Game.league, day).forEach(f => {
@@ -1405,12 +1416,8 @@ function _initOnlineGame(leagueJson, claims, timeOffsetMs) {
   Game.league.teams.forEach((team, idx) => {
     team.isHuman = (idx === Game.myTeamIndex);
   });
-
-  // Si pas de revendication, prendre la première équipe (spectateur)
-  if (Game.myTeamIndex === -1) {
-    Game.league.teams[0].isHuman = true;
-    Game.myTeamIndex = 0;
-  }
+  // Si pas de revendication → mode spectateur : myTeamIndex reste -1,
+  // _isMyMatch() retournera true pour le premier match reçu.
 
   Game.phase = 'STANDINGS';
 
@@ -1526,6 +1533,9 @@ function _isMyMatch(data) {
 function _processMatchStart(data) {
   console.log('[Match] _processMatchStart appelé pour', data.matchId,
     '— home:', data.homeTeam?.id, 'away:', data.awayTeam?.id);
+  // Marquer le match du jour comme démarré — empêche _onClockTick de
+  // re-déclencher un startMatch() quand on revient au classement après le match.
+  Game.todaySchedule.matchStarted = true;
   try {
     Game.match = _buildOnlineMatchState(data);
 

@@ -231,6 +231,9 @@ function _serverPostMatch(matchId) {
   if (_serverMatches.size === 0) {
     salaryReports = _processSalaries(league);
     league.currentMatchday = (league.currentMatchday || 0) + 1;
+    // Enregistrer la date à laquelle ce matchday s'est terminé
+    // → empêche qu'un nouveau matchday démarre le même jour calendaire
+    d.matchdayLastPlayedDate = serverNow(d.timeOffsetMs || 0).toDateString();
   }
 
   d.leagueJson = JSON.stringify(league);
@@ -654,14 +657,15 @@ app.post('/api/start-season', adminAuth, (req, res) => {
 
 app.post('/api/reset-season', adminAuth, (_req, res) => {
   const d = loadData();
-  d.leagueJson      = null;
-  d.started         = false;
-  d.claims          = [];
-  d.mercatoPool     = null;
-  d.mercatoMatchday = -1;
-  d.bids            = {};
-  d.mercatoResolved = false;
-  d.timeOffsetMs    = 0;
+  d.leagueJson            = null;
+  d.started               = false;
+  d.claims                = [];
+  d.mercatoPool           = null;
+  d.mercatoMatchday       = -1;
+  d.bids                  = {};
+  d.mercatoResolved       = false;
+  d.timeOffsetMs          = 0;
+  d.matchdayLastPlayedDate = null;
   saveData(d);
   broadcastLobby();
   io.emit('season_reset');
@@ -775,6 +779,24 @@ app.post('/api/match/start', auth, (req, res) => {
   // Toutes les fixtures impliquant au moins une équipe humaine
   let humanFixtures = fixtures.filter(f => humanTeamIds.has(f.homeId) || humanTeamIds.has(f.awayId));
   if (humanFixtures.length === 0) humanFixtures = [fixtures[0]].filter(Boolean); // fallback
+
+  // ── Guard anti-matchday consécutif : un seul matchday par jour calendaire ──
+  const todayStr = serverNow(d.timeOffsetMs || 0).toDateString();
+  if (d.matchdayLastPlayedDate === todayStr) {
+    // Un matchday s'est déjà terminé aujourd'hui.
+    // Autoriser uniquement la re-diffusion des matchs encore en cours.
+    const running = humanFixtures.filter(f => _serverMatches.has(`${f.homeId}:${f.awayId}`));
+    if (running.length > 0) {
+      running.forEach(f => {
+        const mid   = `${f.homeId}:${f.awayId}`;
+        const entry = _serverMatches.get(mid);
+        io.emit('match_start', _buildMatchStartPayload(entry.ms, mid));
+      });
+      return res.json({ ok: true, matches: running.map(f => f.homeId + ':' + f.awayId), note: 'rebroadcast' });
+    }
+    console.log('⛔ match/start refusé — matchday déjà joué aujourd\'hui (' + todayStr + ')');
+    return res.json({ ok: true, matches: [], note: 'already_played_today' });
+  }
 
   // Quick-sim uniquement les fixtures purement IA
   const humanFixtureIds = new Set(humanFixtures.map(f => `${f.homeId}:${f.awayId}`));
