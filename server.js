@@ -747,6 +747,16 @@ app.post('/api/start-season', adminAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Admin : avancer le temps au prochain événement (12h, 20h, 20h30) ─────────
+app.post('/api/admin/skip-time', adminAuth, (_req, res) => {
+  const d = loadData();
+  const newOffset = computeSkipOffset(d.timeOffsetMs || 0);
+  d.timeOffsetMs = newOffset;
+  saveData(d);
+  io.emit('time_updated', { timeOffsetMs: newOffset });
+  res.json({ ok: true, timeOffsetMs: newOffset });
+});
+
 app.post('/api/reset-season', adminAuth, (_req, res) => {
   const d = loadData();
   d.leagueJson            = null;

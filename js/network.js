@@ -129,6 +129,9 @@ const Network = (() => {
   // ── Match serveur ──────────────────────────────────────────────────────────
   function startServerMatch() { return _req('POST', '/api/match/start'); }
 
+  // ── Admin : avancer le temps au prochain événement ────────────────────────
+  function skipTime() { return _req('POST', '/api/admin/skip-time'); }
+
   // ── Enchères ───────────────────────────────────────────────────────────────
   function getMercatoPool() { return _req('GET', '/api/mercato/pool'); }
   function placeBid(playerId, amount, rosterSlot) {
@@ -180,7 +183,7 @@ const Network = (() => {
     getGameState, pushGameState, sendMercatoAction,
     setTrumpCard,
     getMercatoPool, placeBid, resolveMercato,
-    startServerMatch,
+    startServerMatch, skipTime,
     on, getUser, isLoggedIn, isOnline,
   };
 

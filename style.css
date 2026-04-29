@@ -118,6 +118,19 @@ body.screen-lobby #btn-home { display: none; }
 }
 .stat-chip b { color: var(--gold); }
 
+.btn-admin {
+  background: rgba(168,85,247,0.18);
+  border: 1px solid rgba(168,85,247,0.5);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e9d5ff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-admin:hover { background: rgba(168,85,247,0.35); transform: translateY(-1px); }
+
 /* ═══════════════════════════════════════════
    SCREENS
    ═══════════════════════════════════════════ */

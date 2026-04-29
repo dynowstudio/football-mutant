@@ -1507,6 +1507,10 @@ function _updateOnlineHeader() {
   }
   badge.innerHTML = `<span style="color:#22c55e">●</span> ${user.username}`;
 
+  // Bouton skip-time : visible uniquement pour l'administrateur
+  const skipBtn = document.getElementById('btn-skip-time');
+  if (skipBtn) skipBtn.style.display = user.isAdmin ? '' : 'none';
+
   document.body.classList.add('is-online');
 }
 
@@ -1959,6 +1963,16 @@ document.addEventListener('DOMContentLoaded', () => {
       Network.resetSeason().catch(e => console.error(e));
     }
   });
+
+  // Admin : avancer le temps au prochain événement (12h, 20h, 20h30)
+  const skipBtn = document.getElementById('btn-skip-time');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => {
+      Network.skipTime()
+        .then(r => console.log('[Admin] Temps avancé :', r))
+        .catch(err => console.error('[Admin] skipTime erreur :', err));
+    });
+  }
 
   // Init Three.js 3D renderer
   MatchRenderer.initThreeJS();
