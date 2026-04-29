@@ -1764,6 +1764,23 @@ button:active { transform: translateY(0); filter: brightness(0.95); }
 .sched-l { background: rgba(239,68,68,0.2);  color: #f87171; }
 .sched-d { background: rgba(148,163,184,0.2); color: var(--text2); }
 
+.sched-replay-btn {
+  background: rgba(99,102,241,0.18);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: #a5b4fc;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.15s;
+}
+.sched-replay-btn:hover {
+  background: rgba(99,102,241,0.35);
+  color: #e0e7ff;
+  transform: scale(1.1);
+}
+
 
 /* ═══════════════════════════════════════════
    LOGIN SCREEN

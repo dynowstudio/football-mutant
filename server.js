@@ -259,6 +259,9 @@ function _serverPostMatch(matchId) {
 
   fixture.homeScore = ms.homeScore;
   fixture.awayScore = ms.awayScore;
+  // Attacher le snapshot pour la rediffusion (uniquement les matchs live humains
+  // bénéficient d'un replay — les quick-sims n'en ont pas).
+  if (entry.replayData) fixture.replayData = entry.replayData;
 
   // Apply standings for this fixture
   const home = league.teams.find(t => t.id === ms.homeTeam.id);
@@ -449,7 +452,17 @@ function _startServerMatch(homeTeam, awayTeam, matchday) {
     return;
   }
 
-  const entry = { ms, matchday, eventIdx: 0, halftimeEmitted: false, ticksSinceEmit: 0 };
+  // Snapshot des rosters pour permettre la rediffusion plus tard.
+  // Les rosters peuvent changer entre les journées (mercato), donc on fige
+  // l'état exact au moment du match.
+  const replayData = {
+    matchday,
+    seed: _serverMatchSeed(matchday, homeTeam.id, awayTeam.id),
+    homeTeam: JSON.parse(JSON.stringify(homeTeam)),
+    awayTeam: JSON.parse(JSON.stringify(awayTeam)),
+  };
+
+  const entry = { ms, matchday, eventIdx: 0, halftimeEmitted: false, ticksSinceEmit: 0, replayData };
   _serverMatches.set(matchId, entry);
 
   io.emit('match_start', _buildMatchStartPayload(ms, matchId));

@@ -220,11 +220,16 @@ const StandingsUI = (() => {
             const r    = myS > oppS ? 'W' : myS < oppS ? 'L' : 'D';
             badge = `<span class="sched-result sched-${r.toLowerCase()}">${r}</span>`;
           }
+          // Bouton replay si le match a été joué en live (a des replayData)
+          const replayBtn = f.replayData
+            ? `<button class="sched-replay-btn" title="Revoir ce match"
+                       onclick="replayMatchFromSchedule(${dayIdx}, '${f.homeId}', '${f.awayId}')">📺</button>`
+            : '';
           row.innerHTML =
             `<span class="sched-team ${hWon ? 'sched-winner' : ''}">${hDot}${hName}</span>` +
             `<span class="sched-score">${f.homeScore}&nbsp;–&nbsp;${f.awayScore}</span>` +
             `<span class="sched-team sched-team-right ${aWon ? 'sched-winner' : ''}">${aName}${aDot}</span>` +
-            badge;
+            badge + replayBtn;
         } else {
           row.innerHTML =
             `<span class="sched-team">${hDot}${hName}</span>` +

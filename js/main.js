@@ -723,12 +723,11 @@ function _setReplayBtnVisible(visible) {
   if (btn2) btn2.style.display = visible ? '' : 'none';
 }
 
-// ── Phase: REPLAY — lancer la rediffusion du dernier match ───────────────────
-function replayLastMatch() {
-  const rd = Game.lastMatchReplayData;
-  if (!rd) return;
+// ── Phase: REPLAY — lancer la rediffusion d'un match donné ───────────────────
+function replayMatch(replayData) {
+  if (!replayData) return;
 
-  const { homeTeam, awayTeam, seed } = rd;
+  const { homeTeam, awayTeam, seed } = replayData;
 
   // Reconstruire un état de match local avec la même graine
   Game.match = createMatchState(homeTeam, awayTeam, seed);
@@ -755,6 +754,26 @@ function replayLastMatch() {
   startMatchLoop();
 }
 
+// Compat : rediffusion du tout dernier match joué
+function replayLastMatch() {
+  replayMatch(Game.lastMatchReplayData);
+}
+
+// Lance la rediffusion d'un match du calendrier via ses IDs.
+// Cherche la fixture correspondante dans le schedule et utilise son replayData.
+function replayMatchFromSchedule(matchday, homeId, awayId) {
+  if (!Game.league) return;
+  const fixtures = (Game.league.schedule || [])[matchday] || [];
+  const fixture = fixtures.find(f => f.homeId === homeId && f.awayId === awayId);
+  if (!fixture || !fixture.replayData) {
+    console.warn('[Replay] Pas de données pour', matchday, homeId, awayId);
+    return;
+  }
+  // Marqueur pour que onReplayEnd revienne à STANDINGS et pas à REWARDS
+  Game._replayFromSchedule = true;
+  replayMatch(fixture.replayData);
+}
+
 // ── Fin de rediffusion → retour à l'écran précédent ──────────────────────────
 function onReplayEnd() {
   document.body.classList.remove('match-mode');
@@ -769,6 +788,18 @@ function onReplayEnd() {
   if (speedBtn) speedBtn.textContent = '⚡ ×2';
 
   Game.match = null;
+
+  // Si on a lancé la rediffusion depuis le calendrier (STANDINGS), y revenir directement.
+  if (Game._replayFromSchedule) {
+    Game._replayFromSchedule = false;
+    Game.phase = 'STANDINGS';
+    if (Game.league) {
+      StandingsUI.render(Game.league);
+      StandingsUI.updateHeader(Game.league);
+    }
+    ScreenManager.show('standings');
+    return;
+  }
 
   // Retourner à l'écran récompenses si la journée est terminée, sinon au classement
   if (Game.humanFixture && Game.humanFixture.homeScore !== null && Game.league) {
