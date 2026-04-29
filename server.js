@@ -171,6 +171,71 @@ function _buildMatchTickPayload(ms, matchId) {
   };
 }
 
+// ── Fallback quick-sim quand createMatchState échoue ────────────────────────
+// Applique un résultat Poisson et incrémente le matchday si nécessaire.
+function _fallbackQuickSim(homeTeam, awayTeam, matchday, matchId) {
+  const d = loadData();
+  if (!d.leagueJson) return;
+  let league;
+  try { league = JSON.parse(d.leagueJson); } catch { return; }
+
+  const day = league.currentMatchday;
+  const fixture = (league.schedule[day] || []).find(
+    f => f.homeId === homeTeam.id && f.awayId === awayTeam.id
+  );
+  if (!fixture || fixture.homeScore != null) return; // déjà simulé
+
+  const r = _serverPoisson(homeTeam, awayTeam);
+  fixture.homeScore = r.h;
+  fixture.awayScore = r.a;
+  _applyAIResult(league, fixture);
+
+  // Notifier les clients du résultat
+  io.emit('match_end', {
+    matchId,
+    homeScore:  r.h, awayScore:  r.a,
+    homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
+    events: [], salaryReports: [], injuryReports: [],
+    leagueJson: JSON.stringify(league),
+  });
+
+  // Si plus aucun match en cours, avancer le matchday
+  if (_serverMatches.size === 0) {
+    _finishMatchday(league, d);
+  } else {
+    d.leagueJson = JSON.stringify(league);
+    saveData(d);
+    io.emit('game_state_updated', { leagueJson: d.leagueJson, sender: '__server__' });
+  }
+}
+
+// ── Clôture d'une journée (salaires + avancement matchday) ───────────────────
+// Appeler quand _serverMatches.size === 0 (tous les matchs terminés ou fallback).
+// league et d doivent déjà être mutés avec les résultats du dernier match.
+function _finishMatchday(league, d) {
+  // Sécurité : quick-simmer toute fixture humaine encore à null
+  // (cas rare : createMatchState a échoué et fallback n'a pas pu tourner)
+  const day = league.currentMatchday;
+  (league.schedule[day] || []).forEach(f => {
+    if (f.homeScore != null) return;
+    const home = league.teams.find(t => t.id === f.homeId);
+    const away = league.teams.find(t => t.id === f.awayId);
+    if (!home || !away) return;
+    console.warn(`⚠️  Fixture non simulée détectée (${f.homeId}:${f.awayId}) → quick-sim de secours`);
+    const r = _serverPoisson(home, away);
+    f.homeScore = r.h; f.awayScore = r.a;
+    _applyAIResult(league, f);
+  });
+
+  const salaryReports = _processSalaries(league);
+  league.currentMatchday = (league.currentMatchday || 0) + 1;
+  d.matchdayLastPlayedDate = serverNow(d.timeOffsetMs || 0).toDateString();
+  d.leagueJson = JSON.stringify(league);
+  saveData(d);
+  io.emit('game_state_updated', { leagueJson: d.leagueJson, sender: '__server__' });
+  return salaryReports;
+}
+
 // ── Post-match: apply result + gold (per fixture) + salaries when all done ──────
 function _serverPostMatch(matchId) {
   const entry = _serverMatches.get(matchId);
@@ -226,19 +291,6 @@ function _serverPostMatch(matchId) {
       .forEach(({ t, s, o }) => { t.gold = (t.gold || 0) + (s > o ? 400 : s < o ? 150 : 200); });
   }
 
-  // Salaires + avancement matchday seulement quand tous les matchs du jour sont terminés
-  let salaryReports = [];
-  if (_serverMatches.size === 0) {
-    salaryReports = _processSalaries(league);
-    league.currentMatchday = (league.currentMatchday || 0) + 1;
-    // Enregistrer la date à laquelle ce matchday s'est terminé
-    // → empêche qu'un nouveau matchday démarre le même jour calendaire
-    d.matchdayLastPlayedDate = serverNow(d.timeOffsetMs || 0).toDateString();
-  }
-
-  d.leagueJson = JSON.stringify(league);
-  saveData(d);
-
   // Goal events summary for rewards screen
   const goalEvents = ms.events
     .filter(e => e.type === 'GOAL')
@@ -249,6 +301,16 @@ function _serverPostMatch(matchId) {
       assisterName: e.assister ? e.assister.name : null,
       minute:       e.minute,
     }));
+
+  // Salaires + avancement matchday seulement quand tous les matchs du jour sont terminés
+  let salaryReports = [];
+  if (_serverMatches.size === 0) {
+    // _finishMatchday gère aussi les fixtures non simulées (protection d'urgence)
+    salaryReports = _finishMatchday(league, d);
+  } else {
+    d.leagueJson = JSON.stringify(league);
+    saveData(d);
+  }
 
   io.emit('match_end', {
     matchId,
@@ -367,6 +429,9 @@ function _startServerMatch(homeTeam, awayTeam, matchday) {
     ms = _sim.createMatchState(homeTeam, awayTeam, seed);
   } catch (e) {
     console.error(`❌ Erreur createMatchState pour ${matchId}:`, e.message, e.stack);
+    // ── Fallback : quick-sim plutôt que laisser la fixture à null indéfiniment ──
+    console.warn(`⚠️  Fallback quick-sim pour ${matchId}`);
+    _fallbackQuickSim(homeTeam, awayTeam, matchday, matchId);
     return;
   }
 
